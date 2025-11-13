@@ -1,7 +1,9 @@
 package com.example.starForce;
 
 import org.bukkit.event.EventHandler;
+import org.bukkit.generator.BiomeProvider;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.jspecify.annotations.Nullable;
 
 public final class StarForce extends JavaPlugin {
 
@@ -25,6 +27,15 @@ public final class StarForce extends JavaPlugin {
     public void b() {
 
     }
+    @EventHandler
+    public void b() {
+    }
+    @EventHandler
+    public void c() {}
+
+    @Override
+    public @Nullable BiomeProvider getDefaultBiomeProvider(String worldName, @Nullable String id) {
+        return super.getDefaultBiomeProvider(worldName, id);
+    }
 }
-아니????????????????????????
-h   123123123213123213213213123213213123
+
