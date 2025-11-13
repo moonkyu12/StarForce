@@ -19,6 +19,10 @@ public final class StarForce extends JavaPlugin {
 
     @EventHandler
     public void a() {
+    }
+
+    @EventHandler
+    public void b() {
 
     }
 }
