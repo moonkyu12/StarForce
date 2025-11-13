@@ -1,5 +1,7 @@
 package com.example.starForce.plugin.command;
 
+import com.example.starForce.plugin.model.EnhancementResponse;
+import com.example.starForce.plugin.model.EnhancementResult;
 import com.example.starForce.plugin.service.EnhancementService;
 import com.example.starForce.plugin.util.ItemUtil;
 import org.bukkit.ChatColor;
@@ -28,9 +30,26 @@ public class MagicForceCommand implements CommandExecutor {
                 return true;
             }
 
-            ItemStack enhancedItem = EnhancementService.enhanceItem(itemInHand);
+            EnhancementResponse response = EnhancementService.enhanceItem(itemInHand);
+            ItemStack enhancedItem = response.getItem();
+            EnhancementResult result = response.getResult();
+
             player.getInventory().setItemInMainHand(enhancedItem);
-            player.sendMessage(ChatColor.GREEN + "Item has been enhanced by 1 star!");
+
+            switch (result) {
+                case SUCCESS:
+                    player.sendMessage(ChatColor.GREEN + "강화에 성공했습니다!");
+                    break;
+                case FAILURE:
+                    player.sendMessage(ChatColor.YELLOW + "강화에 실패했습니다.");
+                    break;
+                case DEMOTION:
+                    player.sendMessage(ChatColor.RED + "강화에 실패하여 단계가 하락했습니다.");
+                    break;
+                case DESTRUCTION:
+                    player.sendMessage(ChatColor.DARK_RED + "아이템이 파괴되었습니다!");
+                    break;
+            }
 
             return true;
         }

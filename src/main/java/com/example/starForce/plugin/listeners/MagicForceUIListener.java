@@ -1,22 +1,31 @@
 package com.example.starForce.plugin.listeners;
 
+import com.example.starForce.plugin.model.EnhancementProbabilities;
+import com.example.starForce.plugin.model.EnhancementResponse;
 import com.example.starForce.plugin.service.EnhancementService;
 import com.example.starForce.plugin.ui.MagicForceUI;
 import com.example.starForce.plugin.util.ItemUtil;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 public class MagicForceUIListener implements Listener {
+
+    private static final String PROBABILITY_LORE_PREFIX = ChatColor.GRAY + "  ";
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onInventoryClick(InventoryClickEvent event) {
@@ -24,44 +33,101 @@ public class MagicForceUIListener implements Listener {
             return;
         }
 
-        // We are in our UI, so we can cancel the event by default and only allow specific actions.
-        event.setCancelled(true);
-
-        int rawSlot = event.getRawSlot();
-        Inventory clickedInventory = event.getClickedInventory();
+        Player player = (Player) event.getWhoClicked();
         Inventory topInventory = event.getView().getTopInventory();
+        InventoryAction action = event.getAction();
 
-        // Allow players to click in their own inventory
-        if (clickedInventory != null && !clickedInventory.equals(topInventory)) {
-            // But only allow shift-clicking valid items
-            if (event.isShiftClick() && ItemUtil.isItemAllowed(event.getCurrentItem())) {
-                event.setCancelled(false); // Let the default shift-click behavior happen
-            } else if (!event.isShiftClick()) {
-                event.setCancelled(false);
+        // Handle right-click for enhancement
+        if (event.getRawSlot() == MagicForceUI.ITEM_SLOT && event.isRightClick()) {
+            event.setCancelled(true);
+            ItemStack itemToEnhance = topInventory.getItem(MagicForceUI.ITEM_SLOT);
+            if (ItemUtil.isItemAllowed(itemToEnhance)) {
+                EnhancementResponse response = EnhancementService.enhanceItem(itemToEnhance.clone());
+                ItemStack enhancedItem = response.getItem();
+                updateProbabilitiesLore(enhancedItem); // Update lore for the new level
+                topInventory.setItem(MagicForceUI.ITEM_SLOT, enhancedItem);
             }
             return;
         }
 
-        // Handle clicks inside the top inventory
-        if (rawSlot == MagicForceUI.ITEM_SLOT) {
-            if (event.isRightClick()) {
-                // Right-click is for enhancing
-                ItemStack itemToEnhance = event.getCurrentItem();
-                if (ItemUtil.isItemAllowed(itemToEnhance)) {
-                    ItemStack enhancedItem = EnhancementService.enhanceItem(itemToEnhance);
-                    topInventory.setItem(MagicForceUI.ITEM_SLOT, enhancedItem);
-                }
-                // Event remains cancelled
-            } else {
-                // Other clicks are for placing/taking items
-                if (ItemUtil.isItemAllowed(event.getCursor()) || (event.getCursor() == null || event.getCursor().getType() == Material.AIR)) {
-                    event.setCancelled(false);
+        // More complex handling for placing/taking items
+        if (action == InventoryAction.PLACE_ALL || action == InventoryAction.PLACE_ONE || action == InventoryAction.SWAP_WITH_CURSOR) {
+            if (event.getRawSlot() == MagicForceUI.ITEM_SLOT) {
+                // Item is being placed into the slot
+                ItemStack cursorItem = event.getCursor();
+                if (ItemUtil.isItemAllowed(cursorItem)) {
+                    // Use a scheduler to update lore after the event resolves
+                    org.bukkit.Bukkit.getScheduler().runTaskLater(org.bukkit.Bukkit.getPluginManager().getPlugin("StarForce"), () -> {
+                        ItemStack itemInSlot = topInventory.getItem(MagicForceUI.ITEM_SLOT);
+                        updateProbabilitiesLore(itemInSlot);
+                        player.updateInventory();
+                    }, 1L);
                 }
             }
+        } else if (action == InventoryAction.PICKUP_ALL || action == InventoryAction.PICKUP_ONE) {
+            if (event.getRawSlot() == MagicForceUI.ITEM_SLOT) {
+                // Item is being picked up
+                ItemStack itemInSlot = event.getCurrentItem();
+                removeProbabilitiesLore(itemInSlot);
+            }
+        } else if (action == InventoryAction.MOVE_TO_OTHER_INVENTORY) {
+             if (event.getRawSlot() != MagicForceUI.ITEM_SLOT && event.getClickedInventory().equals(player.getInventory())) {
+                 // Item is being shift-clicked into the UI
+                 ItemStack clickedItem = event.getCurrentItem();
+                 if(ItemUtil.isItemAllowed(clickedItem)) {
+                     org.bukkit.Bukkit.getScheduler().runTaskLater(org.bukkit.Bukkit.getPluginManager().getPlugin("StarForce"), () -> {
+                        ItemStack itemInSlot = topInventory.getItem(MagicForceUI.ITEM_SLOT);
+                        updateProbabilitiesLore(itemInSlot);
+                        player.updateInventory();
+                    }, 1L);
+                 }
+             }
         }
-        // All other clicks in the top inventory (placeholders) remain cancelled.
+
+        // Allow default behavior for allowed actions, cancel others
+        if (event.getRawSlot() == MagicForceUI.ITEM_SLOT) {
+             event.setCancelled(!ItemUtil.isItemAllowed(event.getCursor()) && event.getCursor().getType() != Material.AIR);
+        } else if (event.getClickedInventory() == topInventory) {
+            event.setCancelled(true); // Click on placeholder
+        }
     }
 
+    private void updateProbabilitiesLore(ItemStack item) {
+        if (item == null) return;
+
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return;
+
+        List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
+        lore.removeIf(line -> line.startsWith(PROBABILITY_LORE_PREFIX)); // Remove old probabilities
+
+        int currentLevel = EnhancementService.getEnhancementLevel(item);
+        if (currentLevel >= EnhancementService.MAX_LEVEL) {
+            meta.setLore(lore);
+            item.setItemMeta(meta);
+            return;
+        }
+
+        EnhancementProbabilities probs = EnhancementService.getProbabilities(currentLevel);
+        lore.add(PROBABILITY_LORE_PREFIX);
+        lore.add(PROBABILITY_LORE_PREFIX + ChatColor.GREEN + "성공 확률: " + probs.getSuccess() + "%");
+        if (probs.getFailure() > 0) lore.add(PROBABILITY_LORE_PREFIX + ChatColor.YELLOW + "실패(유지) 확률: " + probs.getFailure() + "%");
+        if (probs.getDemotion() > 0) lore.add(PROBABILITY_LORE_PREFIX + ChatColor.RED + "실패(하락) 확률: " + probs.getDemotion() + "%");
+        if (probs.getDestruction() > 0) lore.add(PROBABILITY_LORE_PREFIX + ChatColor.DARK_RED + "파괴 확률: " + probs.getDestruction() + "%");
+
+        meta.setLore(lore);
+        item.setItemMeta(meta);
+    }
+
+    private void removeProbabilitiesLore(ItemStack item) {
+        if (item == null || !item.hasItemMeta() || !item.getItemMeta().hasLore()) return;
+
+        ItemMeta meta = item.getItemMeta();
+        List<String> lore = meta.getLore();
+        lore.removeIf(line -> line.startsWith(PROBABILITY_LORE_PREFIX));
+        meta.setLore(lore);
+        item.setItemMeta(meta);
+    }
 
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent event) {
@@ -73,6 +139,7 @@ public class MagicForceUIListener implements Listener {
         ItemStack item = inventory.getItem(MagicForceUI.ITEM_SLOT);
 
         if (item != null) {
+            removeProbabilitiesLore(item); // Clean up lore before returning
             Player player = (Player) event.getPlayer();
             Map<Integer, ItemStack> remainingItems = player.getInventory().addItem(item);
             if (!remainingItems.isEmpty()) {
@@ -83,29 +150,17 @@ public class MagicForceUIListener implements Listener {
         }
     }
 
-
     @EventHandler
     public void onInventoryDrag(InventoryDragEvent event) {
         if (!event.getView().getTitle().equals(MagicForceUI.INVENTORY_TITLE)) {
             return;
         }
-
-        boolean touchesTopInventory = false;
+        // Disallow dragging into the top inventory for simplicity
         for (int slot : event.getRawSlots()) {
             if (slot < event.getView().getTopInventory().getSize()) {
-                touchesTopInventory = true;
-                // If it touches a blocked slot, cancel immediately
-                if (slot != MagicForceUI.ITEM_SLOT) {
-                    event.setCancelled(true);
-                    return;
-                }
+                event.setCancelled(true);
+                return;
             }
-        }
-
-        // If the drag touches the top inventory (which must be only in the allowed slot)
-        // check if the item type is allowed.
-        if (touchesTopInventory && !ItemUtil.isItemAllowed(event.getOldCursor())) {
-            event.setCancelled(true);
         }
     }
 }
