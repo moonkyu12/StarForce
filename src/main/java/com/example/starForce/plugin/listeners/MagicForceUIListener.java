@@ -42,6 +42,13 @@ public class MagicForceUIListener implements Listener {
             event.setCancelled(true);
             ItemStack itemToEnhance = topInventory.getItem(MagicForceUI.ITEM_SLOT);
             if (ItemUtil.isItemAllowed(itemToEnhance)) {
+                // Check for diamond cost
+                if (!player.getInventory().contains(Material.DIAMOND, 1)) {
+                    player.sendMessage(ChatColor.RED + "강화에는 다이아몬드 1개가 필요합니다!");
+                    return;
+                }
+                player.getInventory().removeItem(new ItemStack(Material.DIAMOND, 1));
+
                 EnhancementResponse response = EnhancementService.enhanceItem(itemToEnhance.clone());
                 ItemStack enhancedItem = response.getItem();
                 updateProbabilitiesLore(enhancedItem); // Update lore for the new level

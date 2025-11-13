@@ -10,6 +10,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.Material;
 
 public class MagicForceCommand implements CommandExecutor {
 
@@ -29,6 +30,13 @@ public class MagicForceCommand implements CommandExecutor {
                 player.sendMessage(ChatColor.RED + "You can only enhance allowed items (armor, tools, weapons).");
                 return true;
             }
+
+            // Check for diamond cost
+            if (!player.getInventory().contains(Material.DIAMOND, 1)) {
+                player.sendMessage(ChatColor.RED + "강화에는 다이아몬드 1개가 필요합니다!");
+                return true;
+            }
+            player.getInventory().removeItem(new ItemStack(Material.DIAMOND, 1));
 
             EnhancementResponse response = EnhancementService.enhanceItem(itemInHand);
             ItemStack enhancedItem = response.getItem();
