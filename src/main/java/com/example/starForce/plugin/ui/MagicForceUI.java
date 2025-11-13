@@ -9,21 +9,24 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 public class MagicForceUI {
 
+    private static final ItemStack PLACEHOLDER;
+
+    static {
+        PLACEHOLDER = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
+        ItemMeta meta = PLACEHOLDER.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(" ");
+            PLACEHOLDER.setItemMeta(meta);
+        }
+    }
+
     public static void openMagicForceUI(Player player) {
         Inventory ui = Bukkit.createInventory(null, 27, "스타★포스 인벤토리");
 
-        // Create placeholder item
-        ItemStack placeholder = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
-        ItemMeta meta = placeholder.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(" ");
-            placeholder.setItemMeta(meta);
-        }
-
-        // Fill inventory with placeholders
+        // Fill inventory with the static placeholder
         for (int i = 0; i < ui.getSize(); i++) {
             if (i != 13) { // Leave slot 13 (the 14th slot) empty
-                ui.setItem(i, placeholder);
+                ui.setItem(i, PLACEHOLDER);
             }
         }
 
