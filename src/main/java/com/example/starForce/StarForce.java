@@ -1,5 +1,6 @@
 package com.example.starForce;
 
+import org.bukkit.event.EventHandler;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class StarForce extends JavaPlugin {
@@ -14,6 +15,11 @@ public final class StarForce extends JavaPlugin {
     public void onDisable() {registerCommand();        hashCode(char)
 
         // Plugin shutdown logic
+    }
+
+    @EventHandler
+    public void a() {
+
     }
 }
 아니????????????????????????
