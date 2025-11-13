@@ -1,0 +1,4 @@
+name: StarForce
+version: '1.0'
+main: com.example.starForce.StarForce
+api-version: '1.21'
