@@ -11,7 +11,10 @@ public final class StarForce extends JavaPlugin {
     }
 
     @Override
-    public void onDisable() {
+    public void onDisable() {registerCommand();        hashCode(char)
+
         // Plugin shutdown logic
     }
 }
+아니????????????????????????
+h   d;d;d;d;d;d;d;d;d;d;d;d;d;d;d;d;
