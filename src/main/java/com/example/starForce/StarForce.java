@@ -15,28 +15,4 @@ public final class StarForce extends JavaPlugin {
     public void onDisable() {
         // Plugin shutdown logic
     }
-
-    @EventHandler
-    public void a() {
-    }
-
-    @EventHandler
-    public void b() {
-
-    }
-
-    @EventHandler
-    public void c() {
-
-    }
-
-    @EventHandler
-    public void d() {
-
-    }
-
-    @EventHandler
-    public void e() {
-
-    }
 }
