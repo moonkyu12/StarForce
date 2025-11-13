@@ -9,6 +9,9 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 public class MagicForceUI {
 
+    public static final String INVENTORY_TITLE = "스타★포스 인벤토리";
+    public static final int ITEM_SLOT = 13;
+
     private static final ItemStack PLACEHOLDER;
 
     static {
@@ -21,11 +24,11 @@ public class MagicForceUI {
     }
 
     public static void openMagicForceUI(Player player) {
-        Inventory ui = Bukkit.createInventory(null, 27, "스타★포스 인벤토리");
+        Inventory ui = Bukkit.createInventory(null, 27, INVENTORY_TITLE);
 
         // Fill inventory with the static placeholder
         for (int i = 0; i < ui.getSize(); i++) {
-            if (i != 13) { // Leave slot 13 (the 14th slot) empty
+            if (i != ITEM_SLOT) {
                 ui.setItem(i, PLACEHOLDER);
             }
         }
