@@ -1,7 +1,7 @@
 package com.example.starForce.plugin.command;
 
-import com.example.starForce.plugin.model.EnhancementResponse;
-import com.example.starForce.plugin.model.EnhancementResult;
+import com.example.starForce.plugin.EnhancementResponse;
+import com.example.starForce.plugin.EnhancementResult;
 import com.example.starForce.plugin.service.EnhancementService;
 import com.example.starForce.plugin.util.ItemUtil;
 import org.bukkit.ChatColor;

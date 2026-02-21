@@ -1,21 +1,31 @@
 package com.example.starForce.plugin.service;
 
-import com.example.starForce.plugin.model.EnhancementProbabilities;
-import com.example.starForce.plugin.model.EnhancementResponse;
-import com.example.starForce.plugin.model.EnhancementResult;
+import com.example.starForce.plugin.EnhancementProbabilities;
+import com.example.starForce.plugin.EnhancementResponse;
+import com.example.starForce.plugin.EnhancementResult;
+import com.example.starForce.plugin.util.ItemUtil;
 import org.bukkit.ChatColor;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeModifier;
+import org.bukkit.attribute.AttributeModifier.Operation;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.Bukkit;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
+import java.util.Collection;
+import java.util.Iterator;
 
 public class EnhancementService {
 
     private static final String LORE_PREFIX = ChatColor.GRAY + "강화: ";
     public static final int MAX_LEVEL = 10;
     private static final Random random = new Random();
+    private static final UUID STARFORCE_DAMAGE_UUID = UUID.fromString("6a04a6e8-2b81-4b10-8b01-5e7e0e7e0e7e"); // Re-added
 
     public static EnhancementResponse enhanceItem(ItemStack item) {
         if (item == null) {
@@ -50,23 +60,75 @@ public class EnhancementService {
             return new EnhancementResponse(item, EnhancementResult.FAILURE); // Should not happen
         }
 
-        List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
+        // Calculate bonusPercentage
+        double bonusPercentage = 0;
+        if (newLevel >= 1 && newLevel <= 2) {
+            bonusPercentage = 0.10; // 10%
+        } else if (newLevel >= 3 && newLevel <= 5) {
+            bonusPercentage = 0.20; // 20%
+        } else if (newLevel >= 6 && newLevel <= 7) {
+            bonusPercentage = 0.30; // 30%
+        } else if (newLevel >= 8 && newLevel <= 10) {
+            bonusPercentage = 0.50; // 50%
+        }
 
-        int starLineIndex = -1;
-        for (int i = 0; i < lore.size(); i++) {
-            if (lore.get(i).startsWith(LORE_PREFIX)) {
-                starLineIndex = i;
-                break;
+        // --- AttributeModifier Logic ---
+        Bukkit.getLogger().info("StarForce: Entering enhanceItem for item: " + (newItem != null ? newItem.getType().name() : "null") + ", newLevel: " + newLevel + ", bonusPercentage: " + bonusPercentage);
+
+        if (ItemUtil.isSword(newItem)) {
+            // Remove existing StarForce damage modifiers to prevent stacking
+            Collection<AttributeModifier> currentModifiers = meta.getAttributeModifiers(Attribute.valueOf("GENERIC_ATTACK_DAMAGE"));
+            if (currentModifiers != null) {
+                Iterator<AttributeModifier> iterator = currentModifiers.iterator();
+                while (iterator.hasNext()) {
+                    AttributeModifier modifier = iterator.next();
+                    if (STARFORCE_DAMAGE_UUID.equals(modifier.getUniqueId())) {
+                        Bukkit.getLogger().info("StarForce: Removing existing StarForceDamage modifier: " + modifier.getName() + " (" + modifier.getAmount() + ")");
+                        meta.removeAttributeModifier(Attribute.valueOf("GENERIC_ATTACK_DAMAGE"), modifier);
+                    }
+                }
+            }
+
+            if (bonusPercentage > 0) {
+                AttributeModifier modifier = new AttributeModifier(
+                    STARFORCE_DAMAGE_UUID,
+                    "StarForceDamage",
+                    bonusPercentage,
+                    Operation.MULTIPLY_SCALAR_1, // Use MULTIPLY_SCALAR_1 for percentage display
+                    EquipmentSlot.HAND // Apply to main hand
+                );
+                meta.addAttributeModifier(Attribute.valueOf("GENERIC_ATTACK_DAMAGE"), modifier);
+                Bukkit.getLogger().info("StarForce: Added new StarForceDamage modifier: " + modifier.getName() + " (" + modifier.getAmount() + ", " + modifier.getOperation() + ")");
+            } else {
+                Bukkit.getLogger().info("StarForce: No bonusPercentage, ensuring existing modifiers are removed.");
+            }
+        } else {
+            Bukkit.getLogger().info("StarForce: Item is not a sword, skipping attribute modifier logic.");
+            // Also ensure any previous modifiers are removed if item type changes or is no longer a sword
+            Collection<AttributeModifier> currentModifiers = meta.getAttributeModifiers(Attribute.valueOf("GENERIC_ATTACK_DAMAGE"));
+            if (currentModifiers != null) {
+                Iterator<AttributeModifier> iterator = currentModifiers.iterator();
+                while (iterator.hasNext()) {
+                    AttributeModifier modifier = iterator.next();
+                    if (STARFORCE_DAMAGE_UUID.equals(modifier.getUniqueId())) {
+                        Bukkit.getLogger().info("StarForce: Removing existing StarForceDamage modifier (not a sword or no bonus): " + modifier.getName());
+                        meta.removeAttributeModifier(Attribute.valueOf("GENERIC_ATTACK_DAMAGE"), modifier);
+                    }
+                }
             }
         }
+        // --- End AttributeModifier Logic ---
 
+
+        List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
+
+        // Remove existing StarForce related lore (only LORE_PREFIX for stars now)
+        // Minecraft will automatically generate lore for AttributeModifiers
+        lore.removeIf(line -> line.startsWith(LORE_PREFIX));
+
+        // Add enhancement level lore
         String newStarLine = generateStarLore(newLevel);
-
-        if (starLineIndex != -1) {
-            lore.set(starLineIndex, newStarLine);
-        } else {
-            lore.add(0, newStarLine);
-        }
+        lore.add(0, newStarLine); // Always add star lore at the top
 
         meta.setLore(lore);
         newItem.setItemMeta(meta);

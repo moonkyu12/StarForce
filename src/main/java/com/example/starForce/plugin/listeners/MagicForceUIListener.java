@@ -1,7 +1,7 @@
 package com.example.starForce.plugin.listeners;
 
-import com.example.starForce.plugin.model.EnhancementProbabilities;
-import com.example.starForce.plugin.model.EnhancementResponse;
+import com.example.starForce.plugin.EnhancementProbabilities;
+import com.example.starForce.plugin.EnhancementResponse;
 import com.example.starForce.plugin.service.EnhancementService;
 import com.example.starForce.plugin.ui.MagicForceUI;
 import com.example.starForce.plugin.util.ItemUtil;
@@ -53,6 +53,7 @@ public class MagicForceUIListener implements Listener {
                 ItemStack enhancedItem = response.getItem();
                 updateProbabilitiesLore(enhancedItem); // Update lore for the new level
                 topInventory.setItem(MagicForceUI.ITEM_SLOT, enhancedItem);
+                player.updateInventory(); // Added to refresh player inventory and attributes
             }
             return;
         }
@@ -148,12 +149,25 @@ public class MagicForceUIListener implements Listener {
         if (item != null) {
             removeProbabilitiesLore(item); // Clean up lore before returning
             Player player = (Player) event.getPlayer();
+
+            ItemStack mainHandItemBeforeClose = player.getInventory().getItemInMainHand();
+            boolean wasHoldingEnhancedItem = item.isSimilar(mainHandItemBeforeClose); // Check if the item is similar to what was in main hand
+
             Map<Integer, ItemStack> remainingItems = player.getInventory().addItem(item);
             if (!remainingItems.isEmpty()) {
                 for (ItemStack remainingItem : remainingItems.values()) {
                     player.getWorld().dropItemNaturally(player.getLocation(), remainingItem);
                 }
             }
+            
+            // If the player was holding the enhanced item, force a re-equip/update
+            if (wasHoldingEnhancedItem) {
+                // Briefly set main hand to air then back to the item to force re-evaluation of attributes
+                // This might cause a slight flicker, but ensures attributes are applied
+                player.getInventory().setItemInMainHand(new ItemStack(Material.AIR)); // Temporarily clear main hand
+                player.getInventory().setItemInMainHand(item); // Re-set the enhanced item
+            }
+            player.updateInventory(); // Always call updateInventory for good measure, regardless of wasHoldingEnhancedItem
         }
     }
 
