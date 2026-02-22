@@ -25,7 +25,9 @@ public class EnhancementService {
     private static final String LORE_PREFIX = ChatColor.GRAY + "강화: ";
     public static final int MAX_LEVEL = 10;
     private static final Random random = new Random();
-    private static final UUID STARFORCE_DAMAGE_UUID = UUID.fromString("6a04a6e8-2b81-4b10-8b01-5e7e0e7e0e7e"); // Re-added
+    public static final UUID STARFORCE_DAMAGE_UUID = UUID.fromString("6a04a6e8-2b81-4b10-8b01-5e7e0e7e0e7e");
+    public static final UUID STARFORCE_ARMOR_UUID = UUID.fromString("b45065e1-2b81-4b10-8b01-5e7e0e7e0e7e");
+    public static final UUID STARFORCE_TOUGHNESS_UUID = UUID.fromString("c7809a12-2b81-4b10-8b01-5e7e0e7e0e7e");
 
     public static EnhancementResponse enhanceItem(ItemStack item) {
         if (item == null) {
@@ -60,22 +62,28 @@ public class EnhancementService {
             return new EnhancementResponse(item, EnhancementResult.FAILURE); // Should not happen
         }
 
-        // Calculate bonusPercentage
+        // Calculate cumulative bonusPercentage
         double bonusPercentage = 0;
-        if (newLevel >= 1 && newLevel <= 2) {
-            bonusPercentage = 0.10; // 10%
-        } else if (newLevel >= 3 && newLevel <= 5) {
-            bonusPercentage = 0.20; // 20%
-        } else if (newLevel >= 6 && newLevel <= 7) {
-            bonusPercentage = 0.30; // 30%
-        } else if (newLevel >= 8 && newLevel <= 10) {
-            bonusPercentage = 0.50; // 50%
+        for (int i = 1; i <= newLevel; i++) {
+            if (i >= 1 && i <= 2) {
+                bonusPercentage += 0.10; // Add 10% for levels 1 and 2
+            } else if (i >= 3 && i <= 5) {
+                bonusPercentage += 0.20; // Add 20% for levels 3, 4, 5
+            } else if (i >= 6 && i <= 7) {
+                bonusPercentage += 0.30; // Add 30% for levels 6, 7
+            } else if (i >= 8 && i <= 10) {
+                bonusPercentage += 0.50; // Add 50% for levels 8, 9, 10
+            }
         }
 
-        // --- AttributeModifier Logic ---
-        Bukkit.getLogger().info("StarForce: Entering enhanceItem for item: " + (newItem != null ? newItem.getType().name() : "null") + ", newLevel: " + newLevel + ", bonusPercentage: " + bonusPercentage);
+        // Ensure base stats are present before applying starforce modifiers
+        ItemUtil.ensureBaseAttributes(meta, newItem.getType());
 
-        if (ItemUtil.isSword(newItem)) {
+        // --- AttributeModifier Logic ---
+        // Bukkit.getLogger().info("StarForce: Entering enhanceItem for item: " + (newItem != null ? newItem.getType().name() : "null") + ", newLevel: " + newLevel + ", bonusPercentage: " + bonusPercentage);
+
+        if (ItemUtil.isEnhanceableWeapon(newItem)) {
+            EquipmentSlot slot = EquipmentSlot.HAND; // Weapons are typically in hand
             // Remove existing StarForce damage modifiers to prevent stacking
             Collection<AttributeModifier> currentModifiers = meta.getAttributeModifiers(Attribute.valueOf("GENERIC_ATTACK_DAMAGE"));
             if (currentModifiers != null) {
@@ -83,7 +91,7 @@ public class EnhancementService {
                 while (iterator.hasNext()) {
                     AttributeModifier modifier = iterator.next();
                     if (STARFORCE_DAMAGE_UUID.equals(modifier.getUniqueId())) {
-                        Bukkit.getLogger().info("StarForce: Removing existing StarForceDamage modifier: " + modifier.getName() + " (" + modifier.getAmount() + ")");
+                        // Bukkit.getLogger().info("StarForce: Removing existing StarForceDamage modifier: " + modifier.getName() + " (" + modifier.getAmount() + ")");
                         meta.removeAttributeModifier(Attribute.valueOf("GENERIC_ATTACK_DAMAGE"), modifier);
                     }
                 }
@@ -95,26 +103,57 @@ public class EnhancementService {
                     "StarForceDamage",
                     bonusPercentage,
                     Operation.MULTIPLY_SCALAR_1, // Use MULTIPLY_SCALAR_1 for percentage display
-                    EquipmentSlot.HAND // Apply to main hand
+                    slot
                 );
                 meta.addAttributeModifier(Attribute.valueOf("GENERIC_ATTACK_DAMAGE"), modifier);
-                Bukkit.getLogger().info("StarForce: Added new StarForceDamage modifier: " + modifier.getName() + " (" + modifier.getAmount() + ", " + modifier.getOperation() + ")");
+                // Bukkit.getLogger().info("StarForce: Added new StarForceDamage modifier: " + modifier.getName() + " (" + modifier.getAmount() + ", " + modifier.getOperation() + ")");
             } else {
-                Bukkit.getLogger().info("StarForce: No bonusPercentage, ensuring existing modifiers are removed.");
+                // Bukkit.getLogger().info("StarForce: No bonusPercentage, ensuring existing modifiers are removed.");
             }
-        } else {
-            Bukkit.getLogger().info("StarForce: Item is not a sword, skipping attribute modifier logic.");
-            // Also ensure any previous modifiers are removed if item type changes or is no longer a sword
-            Collection<AttributeModifier> currentModifiers = meta.getAttributeModifiers(Attribute.valueOf("GENERIC_ATTACK_DAMAGE"));
-            if (currentModifiers != null) {
-                Iterator<AttributeModifier> iterator = currentModifiers.iterator();
+        } else if (ItemUtil.isArmor(newItem)) {
+            EquipmentSlot slot = ItemUtil.getEquipmentSlot(newItem.getType());
+            // GENERIC_ARMOR
+            Collection<AttributeModifier> currentArmorModifiers = meta.getAttributeModifiers(Attribute.valueOf("GENERIC_ARMOR"));
+            if (currentArmorModifiers != null) {
+                Iterator<AttributeModifier> iterator = currentArmorModifiers.iterator();
                 while (iterator.hasNext()) {
                     AttributeModifier modifier = iterator.next();
-                    if (STARFORCE_DAMAGE_UUID.equals(modifier.getUniqueId())) {
-                        Bukkit.getLogger().info("StarForce: Removing existing StarForceDamage modifier (not a sword or no bonus): " + modifier.getName());
-                        meta.removeAttributeModifier(Attribute.valueOf("GENERIC_ATTACK_DAMAGE"), modifier);
+                    if (STARFORCE_ARMOR_UUID.equals(modifier.getUniqueId())) {
+                        meta.removeAttributeModifier(Attribute.valueOf("GENERIC_ARMOR"), modifier);
                     }
                 }
+            }
+            if (bonusPercentage > 0) {
+                AttributeModifier armorModifier = new AttributeModifier(
+                    STARFORCE_ARMOR_UUID,
+                    "StarForceArmor",
+                    bonusPercentage,
+                    Operation.MULTIPLY_SCALAR_1,
+                    slot
+                );
+                meta.addAttributeModifier(Attribute.valueOf("GENERIC_ARMOR"), armorModifier);
+            }
+
+            // GENERIC_ARMOR_TOUGHNESS
+            Collection<AttributeModifier> currentToughnessModifiers = meta.getAttributeModifiers(Attribute.valueOf("GENERIC_ARMOR_TOUGHNESS"));
+            if (currentToughnessModifiers != null) {
+                Iterator<AttributeModifier> iterator = currentToughnessModifiers.iterator();
+                while (iterator.hasNext()) {
+                    AttributeModifier modifier = iterator.next();
+                    if (STARFORCE_TOUGHNESS_UUID.equals(modifier.getUniqueId())) {
+                        meta.removeAttributeModifier(Attribute.valueOf("GENERIC_ARMOR_TOUGHNESS"), modifier);
+                    }
+                }
+            }
+            if (bonusPercentage > 0) {
+                AttributeModifier toughnessModifier = new AttributeModifier(
+                    STARFORCE_TOUGHNESS_UUID,
+                    "StarForceArmorToughness",
+                    bonusPercentage,
+                    Operation.MULTIPLY_SCALAR_1,
+                    slot
+                );
+                meta.addAttributeModifier(Attribute.valueOf("GENERIC_ARMOR_TOUGHNESS"), toughnessModifier);
             }
         }
         // --- End AttributeModifier Logic ---
@@ -248,5 +287,120 @@ public class EnhancementService {
             stars.append("☆");
         }
         return stars.toString();
+    }
+
+    public static ItemStack setEnhancementLevel(ItemStack item, int newLevel) {
+        if (item == null) {
+            return null;
+        }
+
+        ItemStack newItem = item.clone();
+        ItemMeta meta = newItem.getItemMeta();
+        if (meta == null) {
+            return item; // Should not happen
+        }
+
+        // Calculate cumulative bonusPercentage for the target level
+        double bonusPercentage = 0;
+        for (int i = 1; i <= newLevel; i++) {
+            if (i >= 1 && i <= 2) {
+                bonusPercentage += 0.10; // Add 10% for levels 1 and 2
+            } else if (i >= 3 && i <= 5) {
+                bonusPercentage += 0.20; // Add 20% for levels 3, 4, 5
+            } else if (i >= 6 && i <= 7) {
+                bonusPercentage += 0.30; // Add 30% for levels 6, 7
+            } else if (i >= 8 && i <= 10) {
+                bonusPercentage += 0.50; // Add 50% for levels 8, 9, 10
+            }
+        }
+
+        // Ensure base stats are present before applying starforce modifiers
+        ItemUtil.ensureBaseAttributes(meta, newItem.getType());
+
+        // --- AttributeModifier Logic ---
+        if (ItemUtil.isEnhanceableWeapon(newItem)) {
+            EquipmentSlot slot = EquipmentSlot.HAND; // Weapons are typically in hand
+            // Remove existing StarForce damage modifiers to prevent stacking
+            Collection<AttributeModifier> currentModifiers = meta.getAttributeModifiers(Attribute.valueOf("GENERIC_ATTACK_DAMAGE"));
+            if (currentModifiers != null) {
+                Iterator<AttributeModifier> iterator = currentModifiers.iterator();
+                while (iterator.hasNext()) {
+                    AttributeModifier modifier = iterator.next();
+                    if (STARFORCE_DAMAGE_UUID.equals(modifier.getUniqueId())) {
+                        meta.removeAttributeModifier(Attribute.valueOf("GENERIC_ATTACK_DAMAGE"), modifier);
+                    }
+                }
+            }
+
+            if (bonusPercentage > 0) {
+                AttributeModifier modifier = new AttributeModifier(
+                    STARFORCE_DAMAGE_UUID,
+                    "StarForceDamage",
+                    bonusPercentage,
+                    Operation.MULTIPLY_SCALAR_1,
+                    slot
+                );
+                meta.addAttributeModifier(Attribute.valueOf("GENERIC_ATTACK_DAMAGE"), modifier);
+            }
+        } else if (ItemUtil.isArmor(newItem)) {
+            EquipmentSlot slot = ItemUtil.getEquipmentSlot(newItem.getType());
+            // GENERIC_ARMOR
+            Collection<AttributeModifier> currentArmorModifiers = meta.getAttributeModifiers(Attribute.valueOf("GENERIC_ARMOR"));
+            if (currentArmorModifiers != null) {
+                Iterator<AttributeModifier> iterator = currentArmorModifiers.iterator();
+                while (iterator.hasNext()) {
+                    AttributeModifier modifier = iterator.next();
+                    if (STARFORCE_ARMOR_UUID.equals(modifier.getUniqueId())) {
+                        meta.removeAttributeModifier(Attribute.valueOf("GENERIC_ARMOR"), modifier);
+                    }
+                }
+            }
+            if (bonusPercentage > 0) {
+                AttributeModifier armorModifier = new AttributeModifier(
+                    STARFORCE_ARMOR_UUID,
+                    "StarForceArmor",
+                    bonusPercentage,
+                    Operation.MULTIPLY_SCALAR_1,
+                    slot
+                );
+                meta.addAttributeModifier(Attribute.valueOf("GENERIC_ARMOR"), armorModifier);
+            }
+
+            // GENERIC_ARMOR_TOUGHNESS
+            Collection<AttributeModifier> currentToughnessModifiers = meta.getAttributeModifiers(Attribute.valueOf("GENERIC_ARMOR_TOUGHNESS"));
+            if (currentToughnessModifiers != null) {
+                Iterator<AttributeModifier> iterator = currentToughnessModifiers.iterator();
+                while (iterator.hasNext()) {
+                    AttributeModifier modifier = iterator.next();
+                    if (STARFORCE_TOUGHNESS_UUID.equals(modifier.getUniqueId())) {
+                        meta.removeAttributeModifier(Attribute.valueOf("GENERIC_ARMOR_TOUGHNESS"), modifier);
+                    }
+                }
+            }
+            if (bonusPercentage > 0) {
+                AttributeModifier toughnessModifier = new AttributeModifier(
+                    STARFORCE_TOUGHNESS_UUID,
+                    "StarForceArmorToughness",
+                    bonusPercentage,
+                    Operation.MULTIPLY_SCALAR_1,
+                    slot
+                );
+                meta.addAttributeModifier(Attribute.valueOf("GENERIC_ARMOR_TOUGHNESS"), toughnessModifier);
+            }
+        }
+        // --- End AttributeModifier Logic ---
+
+        List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
+        lore.removeIf(line -> line.startsWith(LORE_PREFIX));
+
+        if (newLevel > 0) {
+            String newStarLine = generateStarLore(newLevel);
+            lore.add(0, newStarLine);
+        }
+
+        meta.setLore(lore);
+        newItem.setItemMeta(meta);
+
+        return newItem;
     }
 }

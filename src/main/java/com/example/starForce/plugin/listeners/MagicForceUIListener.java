@@ -51,8 +51,39 @@ public class MagicForceUIListener implements Listener {
 
                 EnhancementResponse response = EnhancementService.enhanceItem(itemToEnhance.clone());
                 ItemStack enhancedItem = response.getItem();
-                updateProbabilitiesLore(enhancedItem); // Update lore for the new level
-                topInventory.setItem(MagicForceUI.ITEM_SLOT, enhancedItem);
+
+                // Send result message to player
+                switch (response.getResult()) {
+                    case SUCCESS:
+                        player.sendMessage(ChatColor.GREEN + "★ 강화에 성공했습니다!");
+                        topInventory.setItem(MagicForceUI.ITEM_SLOT, enhancedItem);
+                        break;
+                    case FAILURE:
+                        player.sendMessage(ChatColor.YELLOW + "☆ 강화에 실패했습니다. (등급 유지)");
+                        topInventory.setItem(MagicForceUI.ITEM_SLOT, enhancedItem);
+                        break;
+                    case DEMOTION:
+                        if (ItemUtil.useProtectionScroll(player)) {
+                            player.sendMessage(ChatColor.AQUA + "파괴 방지권이 사용되어 등급 하락을 막았습니다. (등급 유지)");
+                            topInventory.setItem(MagicForceUI.ITEM_SLOT, itemToEnhance); // Prevent demotion
+                        } else {
+                            player.sendMessage(ChatColor.RED + "▼ 강화에 실패하여 등급이 하락했습니다.");
+                            topInventory.setItem(MagicForceUI.ITEM_SLOT, enhancedItem);
+                        }
+                        break;
+                    case DESTRUCTION:
+                        if (ItemUtil.useProtectionScroll(player)) {
+                            player.sendMessage(ChatColor.AQUA + "파괴 방지권이 사용되어 아이템 파괴를 막았습니다. (등급 유지)");
+                            // Item is not destroyed, so put the original item back
+                            topInventory.setItem(MagicForceUI.ITEM_SLOT, itemToEnhance);
+                        } else {
+                            player.sendMessage(ChatColor.DARK_RED + "☠ 아이템이 파괴되었습니다...");
+                            topInventory.setItem(MagicForceUI.ITEM_SLOT, null); // Clear the slot
+                        }
+                        break;
+                }
+
+                updateProbabilitiesLore(topInventory.getItem(MagicForceUI.ITEM_SLOT)); // Update lore for the item in the slot
                 player.updateInventory(); // Added to refresh player inventory and attributes
             }
             return;

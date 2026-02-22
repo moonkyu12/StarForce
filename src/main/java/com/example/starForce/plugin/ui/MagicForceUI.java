@@ -9,7 +9,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 public class MagicForceUI {
 
-    public static final String INVENTORY_TITLE = "스타★포스 인벤토리";
+    public static final String INVENTORY_TITLE = "스타포스★";
     public static final int ITEM_SLOT = 13;
 
     private static final ItemStack PLACEHOLDER;

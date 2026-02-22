@@ -6,3 +6,11 @@ commands:
   magicforce:
     description: StarForce debug command.
     usage: /<command> enhance
+  강화:
+    description: StarForce admin command.
+    usage: /<command> 강화조정 <등급>
+    permission: starforce.admin
+  파괴방지권:
+    description: Gives a protection scroll.
+    usage: /<command> [개수]
+    permission: starforce.admin
